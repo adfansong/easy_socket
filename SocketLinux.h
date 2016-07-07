@@ -6,26 +6,40 @@
 
 #include "SocketBase.h"
 
+EASY_NS_BEGIN
+
 class SocketLinux : public SocketBase {
 public:
-	SocketLinux(string &ip, int port);
+	SocketLinux();
 	virtual ~SocketLinux();
 
 	virtual bool create(int protocol);
-	virtual void close();
-	virtual bool send(const void *buf, size_t len);
-	virtual bool recv(void *buf, size_t len);
+	virtual void close(bool hasError = false);
+	virtual int send(const void *buf, size_t len);
+	virtual int recv(void *buf, size_t len);
 
-	virtual bool bind();
+	virtual bool bind(int port, const char *ip);
 	virtual bool listen();
-	virtual bool accept();
+	virtual bool accept(SockAddr *p = 0);
 
-	virtual bool connect();
+	virtual bool connect(int port, const char *ip);
 
+	virtual bool canRead();
+	virtual bool canWrite();
+
+	virtual bool checkConnected();
 protected:
-	virtual sockaddr* getSockAddr();
+	
+	virtual bool unblock();
+	virtual bool noDelay(bool no);
+	virtual bool reuseAddr(bool use);
+
+	// ios need this
+	bool noSigPipe(bool no);
 
 	int sock;
 };
+
+EASY_NS_END
 
 #endif

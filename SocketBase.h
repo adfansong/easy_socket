@@ -1,49 +1,52 @@
 #pragma once
 
 #include "Common.h"
+#include "SockAddr.h"
+#include "ISocketBaseEvent.h"
 
-enum EventType {
-	None,
-	Listen,
-	Accept,
-	Connect,
-};
+EASY_NS_BEGIN
 
-typedef void EventFunc(EventType type, void *param);
-
-struct ParamAcceptConnect {
-	ParamAcceptConnect(int socket, sockaddr *addr) : socket(socket), addr(addr) {}
-
-	int socket;
-	sockaddr *addr;
-};
 
 class SocketBase {
-public:
+public:	
 
-	SocketBase(string &ip, int port);
+	SocketBase();
 	virtual ~SocketBase() = 0;
 
 	virtual bool create(int protocol) = 0;
-	virtual void close() {}
-	virtual bool send(const void *buf, size_t len) = 0;
-	virtual bool recv(void *buf, size_t len) = 0;
+	virtual void close(bool hasError = false);
+	virtual int send(const void *buf, size_t len) = 0;
+	virtual int recv(void *buf, size_t len) = 0;
 	
-	virtual bool bind() = 0;
+	virtual bool bind(int port, const char *ip) = 0;
 	virtual bool listen() = 0;
-	virtual bool accept() = 0;
+	virtual bool accept(SockAddr *p = 0) = 0;
 
-	virtual bool connect() = 0;
+	virtual bool connect(int port, const char *ip) = 0;
+	
+	virtual bool canRead() = 0;
+	virtual bool canWrite() = 0;
 
-	bool isClient() { return client; }
-protected:
-	virtual sockaddr* getSockAddr() = 0;
-	virtual void emit(EventType type, void *param);
+	virtual bool checkConnected() { return true; }
 
-	string ip;
-	int port;
+	SockAddr* getSockAddr(int port, const char *ip);
+	int getProtocol() { return protocol; }
+
+	void setSockAddr(SockAddr *p);
+	void setDelegate(ISocketBaseEvent *p);
+protected:	
+	
+	virtual bool unblock() = 0;
+	virtual bool noDelay(bool no) = 0;
+	virtual bool reuseAddr(bool use) = 0;
+
+	void emitError(int error);
+
 	// 4, 6
 	int protocol;
-	sockaddr *addr;
-	bool client;
+	SockAddr *addr;	
+
+	ISocketBaseEvent *del;
 };
+
+EASY_NS_END

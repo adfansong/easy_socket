@@ -3,8 +3,10 @@
 
 #if EASY_LINUX
 
-SocketLinux::SocketLinux(string &ip, int port)
-	: SocketBase(ip, port), sock(-1)
+EASY_NS_BEGIN
+
+SocketLinux::SocketLinux()
+	: sock(-1)
 {
 	
 }
@@ -24,6 +26,9 @@ bool SocketLinux::create(int protocol)
 		int p = protocol == 4 ? PF_INET : PF_INET6;
 		sock = ::socket(p, SOCK_STREAM, 0);
 		if (sock != -1) {
+			// default: unblock, reuse addr
+			unblock();
+			reuseAddr(true);
 			return true;
 		} else {
 			EASY_LOG("SocketLinux::create error: %s", strerror(errno));
@@ -35,55 +40,53 @@ bool SocketLinux::create(int protocol)
 	}
 }
 
-void SocketLinux::close()
+void SocketLinux::close(bool hasError)
 {
 	if (sock != -1) {
 		::close(sock);
 		sock = -1;
 	}
+
+	SocketBase::close(hasError);
 }
 
-bool SocketLinux::send(const void *buf, size_t len)
+int SocketLinux::send(const void *buf, size_t len)
 {
 	if (sock == -1) {
 		EASY_LOG("SocketLinux::send error: invalid socket");
-		return false;
+		return -1;
 	}
 
 	size_t ret = ::send(sock, buf, len, 0);
 	if (ret == -1) {
 		EASY_LOG("SocketLinux::send error: %s", strerror(errno));
 	}
-	return ret == len;
+	return ret;
 }
 
-bool SocketLinux::recv(void *buf, size_t len)
+int SocketLinux::recv(void *buf, size_t len)
 {
 	if (sock == -1) {
 		EASY_LOG("SocketLinux::recv error: invalid socket");
-		return false;
+		return -1;
 	}
 
-	// TODO
 	size_t ret = ::recv(sock, buf, len, 0);
 	if (ret == -1) {
 		EASY_LOG("SocketLinux::recv error: %s", strerror(errno));
 	}
-	return ret == len;
+	return ret;
 }
 
-bool SocketLinux::bind()
+bool SocketLinux::bind(int port, const char *ip)
 {
 	if (sock == -1) {
 		EASY_LOG("SocketLinux::bind error: invalid socket");
 		return false;
 	}
-
 	
-	SocketBase::bind();
-
-	sockaddr *p = getSockAddr();
-	int ret = ::bind(sock, p, sizeof(*p));
+	SockAddr *p = getSockAddr(port, ip);
+	int ret = ::bind(sock, p->pointer(), p->length());
 	if (ret != -1) {
 		return true;
 	} else {
@@ -101,7 +104,9 @@ bool SocketLinux::listen()
 
 	int ret = ::listen(sock, 5);
 	if (ret != -1) {
-		emit(Listen, 0);
+		if (del) {
+			del->onListening();
+		}
 		return true;
 	} else {
 		EASY_LOG("SocketLinux::listen error: %s", strerror(errno));
@@ -109,102 +114,186 @@ bool SocketLinux::listen()
 	}
 }
 
-bool SocketLinux::accept()
+bool SocketLinux::accept(SockAddr *p)
 {
 	if (sock == -1) {
 		EASY_LOG("SocketLinux::accept error: invalid socket");
 		return false;
 	}
 
-	sockaddr *p = 0;
-	if (protocol == 4) {
-		p = (sockaddr*)new sockaddr_in();
-	} else {
-		p = (sockaddr*)new sockaddr_in6();
-	}
-	
-	// TODO: test sizeof(*p)
-	socklen_t len = sizeof(*p);
-	int s = ::accept(sock, p, &len);
-	bool ret = true;
-	if (s != -1) {
-		ParamAcceptConnect param(s, p);
-		emit(Accept, &param);
-	} else {
-		ret = false;
-		EASY_LOG("SocketLinux::accept error: %s", strerror(errno));
+	SockAddr *temp = 0;
+	if (!p) {
+		temp = new SockAddr(protocol);
+		p = temp;
 	}
 
-	if (p) {
-		delete p;
+	socklen_t len = p->length();
+	int s = ::accept(sock, p->pointer(), &len);
+	bool ret = true;
+	if (s != -1) {
+		// TODO: save connections..
+		SocketLinux *conn = new SocketLinux();
+		conn->sock = s;
+		conn->setSockAddr(p);
+		if (del) {
+			del->onConnection(conn);
+		} else {
+			delete conn;
+			conn = 0;
+		}
+
+	} else {
+		// unblock
+		if (errno == EAGAIN || errno == EWOULDBLOCK) {
+			// nop
+		} else {
+			EASY_LOG("SocketLinux::accept error: %s", strerror(errno));
+			ret = false;
+		}
+	}
+
+	if (temp) {
+		delete temp;
 	}
 
 	return ret;
 }
 
-bool SocketLinux::connect()
+bool SocketLinux::connect(int port, const char *ip)
 {
 	if (sock == -1) {
 		EASY_LOG("SocketLinux::connect error: invalid socket");
 		return false;
 	}
 
-	sockaddr *p = getSockAddr();
+	SockAddr *p = getSockAddr(port, ip);
+	int ret = ::connect(sock, p->pointer(), p->length());
 
-	int s = ::connect(sock, p, sizeof(*p));
-	bool ret = true;
-	if (s != -1) {
-		ParamAcceptConnect param(s, p);
-		emit(Connect, &param);
+	if (ret == 0) {
+		if (del) {
+			del->onConnect();
+		}
+		return true;
 	} else {
-		ret = false;
-		EASY_LOG("SocketLinux::connect error: %s", strerror(errno));
+		// unblock
+		if (ret == -1 && errno == EINPROGRESS) {
+			return true;
+		} else {
+			EASY_LOG("SocketLinux::connect error: %s", strerror(errno));
+			return false;
+		}
 	}
-
-	return ret;
 }
 
-sockaddr* SocketLinux::getSockAddr()
+bool SocketLinux::canRead()
 {
-	if (!addr) {
-		if (protocol == 4) {
-			sockaddr_in *sock_addr = new struct sockaddr_in();
-			bzero(sock_addr, sizeof(sock_addr));
+	fd_set fds;
+	timeval tv;
 
-			sock_addr->sin_family = AF_INET;
-			sock_addr->sin_port = htons(port);
+	FD_ZERO(&fds);
+	FD_SET(sock, &fds);
 
-			addr = (sockaddr*)sock_addr;
-			if (client) {
-				int ret = inet_pton(AF_INET, ip.c_str(), &sock_addr->sin_addr);
-				if (ret == 0) {
-					addr = 0;
-					EASY_LOG("SocketLinux::getSockAddr.inet_pton error: %s", strerror(errno));
-				}
-			} else {
-				sock_addr->sin_addr.s_addr = INADDR_ANY;
-			}
-		} else {
-			sockaddr_in6 *sock_addr = new struct sockaddr_in6();
-			bzero(sock_addr, sizeof(sock_addr));
+	tv.tv_sec = 0;
+	tv.tv_usec = 0;
 
-			sock_addr->sin6_family = AF_INET6;
-			sock_addr->sin6_port = htons(port);
-
-			addr = (sockaddr*)sock_addr;
-			if (client) {
-				int ret = inet_pton(AF_INET6, ip.c_str(), &sock_addr->sin6_addr);
-				if (ret == 0) {
-					addr = 0;
-					EASY_LOG("SocketLinux::getSockAddr.inet_pton error: %s", strerror(errno));
-				}
-			} else {
-				sock_addr->sin6_addr = in6addr_any;
-			}
+	if (select(sock + 1, &fds, 0, 0, &tv) > 0) {
+		if (FD_ISSET(sock, &fds)) {
+			return true;
 		}
 	}
 
-	return addr;
+	return false;
 }
+
+bool SocketLinux::canWrite()
+{
+	fd_set fds;
+	timeval tv;
+
+	FD_ZERO(&fds);
+	FD_SET(sock, &fds);
+
+	tv.tv_sec = 0;
+	tv.tv_usec = 0;
+
+	if (select(sock + 1, 0, &fds, 0, &tv) > 0) {
+		if (FD_ISSET(sock, &fds)) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+bool SocketLinux::checkConnected()
+{
+	int error;
+	socklen_t len = sizeof(error);
+	int ret = getsockopt(sock, SOL_SOCKET, SO_ERROR, &error, &len);
+	if (ret == -1) {
+		EASY_LOG("SocketLinux::checkConnected.getsockpot error: %s", strerror(errno));
+		return false;
+	}
+
+	if (error == ECONNREFUSED || error == ETIMEDOUT) {
+		EASY_LOG("SocketLinux::checkConnected failed: %s", strerror(error));
+		return false;
+	}
+
+	return true;
+}
+
+bool SocketLinux::unblock()
+{
+	int flags = fcntl(sock, F_GETFL, 0);
+	int ret = fcntl(sock, F_SETFL, flags | O_NONBLOCK);
+	if (ret == -1) {
+		EASY_LOG("SocketLinux::unblock.fcntl error: %s", strerror(errno));
+		return false;
+	}
+
+	return true;
+}
+
+bool SocketLinux::noDelay(bool no)
+{
+	int d = no ? 1 : 0;
+	int ret = setsockopt(sock, IPPROTO_TCP, TCP_NODELAY, (const void *)&d, sizeof(d));
+	if (ret == -1) {
+		EASY_LOG("SocketLinux::noDelay.setsockopt error: %s", strerror(errno));
+		return false;
+	}
+
+	return true;
+}
+
+bool SocketLinux::reuseAddr(bool use)
+{
+	int d = use ? 1 : 0;
+	int ret = setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (const void *)&d, sizeof(d));
+	if (ret == -1) {
+		EASY_LOG("SocketLinux::reuseAddr.setsockopt error: %s", strerror(errno));
+		return false;
+	}
+
+	return true;
+}
+
+bool SocketLinux::noSigPipe(bool no)
+{
+#if EASY_IOS || EASY_MAC
+	int d = no ? 1 : 0;
+	int ret = setsockopt(sock, SOL_SOCKET, SO_NOSIGPIPE, (const void *)&d, sizeof(d));
+	if (ret == -1) {
+		EASY_LOG("SocketLinux::noSigPipe.setsockopt error: %s", strerror(errno));
+		return false;
+	}
+
+#endif
+	return true;
+}
+
+
+EASY_NS_END
 
 #endif
