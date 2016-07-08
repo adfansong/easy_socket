@@ -30,7 +30,11 @@ bool SocketLinux::create(int protocol)
 			if (set_unblock) {
 				unblock();
 			}
-			reuseAddr(true);
+			if (set_reuseAddr) {
+				reuseAddr(true);
+			}
+			// apple: no signal pipe
+			noSigPipe(true);
 			return true;
 		} else {
 			EASY_LOG("SocketLinux::create error: %s", strerror(errno));

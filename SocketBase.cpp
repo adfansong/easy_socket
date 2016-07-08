@@ -3,7 +3,7 @@
 EASY_NS_BEGIN
 
 SocketBase::SocketBase()
-: protocol(4), addr(0), del(0), errorCode(0), set_unblock(true)
+: protocol(4), addr(0), del(0), errorCode(0), set_unblock(true), set_reuseAddr(true)
 {
 
 }

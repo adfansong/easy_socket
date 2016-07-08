@@ -36,10 +36,12 @@ public:
 	int getError();
 	int getInternalError();
 	bool isUnblock() { return set_unblock; }
+	bool isReuseAddr() { return set_reuseAddr; }
 
 	void setSockAddr(SockAddr *p);
 	void setDelegate(ISocketBaseEvent *p);
 	void setUnblock(bool un) { set_unblock = un; }
+	void setReuseAddr(bool re) { set_reuseAddr = re; }
 
 	void emitError();
 protected:
@@ -60,6 +62,7 @@ protected:
 	int internalError;
 
 	bool set_unblock;
+	bool set_reuseAddr;
 };
 
 EASY_NS_END
