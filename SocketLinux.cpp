@@ -27,7 +27,9 @@ bool SocketLinux::create(int protocol)
 		sock = ::socket(p, SOCK_STREAM, 0);
 		if (sock != -1) {
 			// default: unblock, reuse addr
-			unblock();
+			if (set_unblock) {
+				unblock();
+			}
 			reuseAddr(true);
 			return true;
 		} else {
@@ -81,6 +83,7 @@ int SocketLinux::recv(void *buf, size_t len)
 bool SocketLinux::bind(int port, const char *ip)
 {
 	if (sock == -1) {
+		setError(0, SocketInvalid);
 		EASY_LOG("SocketLinux::bind error: invalid socket");
 		return false;
 	}
@@ -90,6 +93,7 @@ bool SocketLinux::bind(int port, const char *ip)
 	if (ret != -1) {
 		return true;
 	} else {
+		setError(errno);
 		EASY_LOG("SocketLinux::bind error: %s", strerror(errno));
 		return false;
 	}
@@ -98,6 +102,7 @@ bool SocketLinux::bind(int port, const char *ip)
 bool SocketLinux::listen()
 {
 	if (sock == -1) {
+		setError(0, SocketInvalid);
 		EASY_LOG("SocketLinux::listen error: invalid socket");
 		return false;
 	}
@@ -109,6 +114,7 @@ bool SocketLinux::listen()
 		}
 		return true;
 	} else {
+		setError(errno);
 		EASY_LOG("SocketLinux::listen error: %s", strerror(errno));
 		return false;
 	}
@@ -117,6 +123,7 @@ bool SocketLinux::listen()
 bool SocketLinux::accept(SockAddr *p)
 {
 	if (sock == -1) {
+		setError(0, SocketInvalid);
 		EASY_LOG("SocketLinux::accept error: invalid socket");
 		return false;
 	}
@@ -147,6 +154,7 @@ bool SocketLinux::accept(SockAddr *p)
 		if (errno == EAGAIN || errno == EWOULDBLOCK) {
 			// nop
 		} else {
+			setError(errno);
 			EASY_LOG("SocketLinux::accept error: %s", strerror(errno));
 			ret = false;
 		}
@@ -162,6 +170,7 @@ bool SocketLinux::accept(SockAddr *p)
 bool SocketLinux::connect(int port, const char *ip)
 {
 	if (sock == -1) {
+		setError(0, SocketInvalid);
 		EASY_LOG("SocketLinux::connect error: invalid socket");
 		return false;
 	}
@@ -179,50 +188,11 @@ bool SocketLinux::connect(int port, const char *ip)
 		if (ret == -1 && errno == EINPROGRESS) {
 			return true;
 		} else {
+			setError(errno);
 			EASY_LOG("SocketLinux::connect error: %s", strerror(errno));
 			return false;
 		}
 	}
-}
-
-bool SocketLinux::canRead()
-{
-	fd_set fds;
-	timeval tv;
-
-	FD_ZERO(&fds);
-	FD_SET(sock, &fds);
-
-	tv.tv_sec = 0;
-	tv.tv_usec = 0;
-
-	if (select(sock + 1, &fds, 0, 0, &tv) > 0) {
-		if (FD_ISSET(sock, &fds)) {
-			return true;
-		}
-	}
-
-	return false;
-}
-
-bool SocketLinux::canWrite()
-{
-	fd_set fds;
-	timeval tv;
-
-	FD_ZERO(&fds);
-	FD_SET(sock, &fds);
-
-	tv.tv_sec = 0;
-	tv.tv_usec = 0;
-
-	if (select(sock + 1, 0, &fds, 0, &tv) > 0) {
-		if (FD_ISSET(sock, &fds)) {
-			return true;
-		}
-	}
-
-	return false;
 }
 
 bool SocketLinux::checkConnected()
@@ -231,11 +201,13 @@ bool SocketLinux::checkConnected()
 	socklen_t len = sizeof(error);
 	int ret = getsockopt(sock, SOL_SOCKET, SO_ERROR, &error, &len);
 	if (ret == -1) {
+		setError(errno);
 		EASY_LOG("SocketLinux::checkConnected.getsockpot error: %s", strerror(errno));
 		return false;
 	}
 
 	if (error == ECONNREFUSED || error == ETIMEDOUT) {
+		setError(error);
 		EASY_LOG("SocketLinux::checkConnected failed: %s", strerror(error));
 		return false;
 	}
@@ -292,7 +264,6 @@ bool SocketLinux::noSigPipe(bool no)
 #endif
 	return true;
 }
-
 
 EASY_NS_END
 

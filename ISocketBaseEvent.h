@@ -10,7 +10,7 @@ class ISocketBaseEvent {
 public:
 	virtual ~ISocketBaseEvent() {};
 
-	virtual void onError(int error) = 0;
+	virtual void onError(int error, int internalError) = 0;
 	virtual void onClose(bool hasError = false) = 0;
 
 	virtual void onListening() = 0;

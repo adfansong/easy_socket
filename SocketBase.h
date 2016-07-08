@@ -24,29 +24,42 @@ public:
 
 	virtual bool connect(int port, const char *ip) = 0;
 	
-	virtual bool canRead() = 0;
-	virtual bool canWrite() = 0;
+	// ret: 0 no, 1 read, 2 write
+	int select(int ms = 0);
+	bool canRead();
+	bool canWrite();
 
-	virtual bool checkConnected() { return true; }
+	virtual bool checkConnected() { return true; }	
 
 	SockAddr* getSockAddr(int port, const char *ip);
 	int getProtocol() { return protocol; }
+	int getError();
+	int getInternalError();
+	bool isUnblock() { return set_unblock; }
 
 	void setSockAddr(SockAddr *p);
 	void setDelegate(ISocketBaseEvent *p);
-protected:	
+	void setUnblock(bool un) { set_unblock = un; }
+
+	void emitError();
+protected:
 	
 	virtual bool unblock() = 0;
 	virtual bool noDelay(bool no) = 0;
 	virtual bool reuseAddr(bool use) = 0;
+	virtual int getSockFd() { return -1; }
 
-	void emitError(int error);
+	void setError(int e, int ie = 0);
 
 	// 4, 6
 	int protocol;
-	SockAddr *addr;	
+	SockAddr *addr;
 
 	ISocketBaseEvent *del;
+	int errorCode;
+	int internalError;
+
+	bool set_unblock;
 };
 
 EASY_NS_END

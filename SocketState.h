@@ -8,10 +8,15 @@ class Socket;
 
 
 enum StateType {
-	Disconnected,
-	Connecting,
-	Connected,
-	Listening,
+	sDisconnected,
+	sConnecting,
+	sConnected,
+	sListening,
+	
+	sConnection,
+	sData,
+	sError,
+	sClose,
 };
 
 // base state

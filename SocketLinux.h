@@ -24,15 +24,13 @@ public:
 
 	virtual bool connect(int port, const char *ip);
 
-	virtual bool canRead();
-	virtual bool canWrite();
-
 	virtual bool checkConnected();
 protected:
 	
 	virtual bool unblock();
 	virtual bool noDelay(bool no);
 	virtual bool reuseAddr(bool use);
+	virtual int getSockFd() { return sock; }
 
 	// ios need this
 	bool noSigPipe(bool no);

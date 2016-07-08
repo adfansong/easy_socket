@@ -14,6 +14,17 @@ int main(int argc, char *argv[]) {
 	Socket s;
 	
 	if (!client) {
+		s.on(sListening, [](void*){
+			EASY_LOG("Listening..");
+		});
+		s.on(sConnection, [](void*){
+			EASY_LOG("Connection..");
+		});
+
+		s.on(sError, [](void*){
+			EASY_LOG("Error..");
+		});
+
 		s.listen(port, 0);
 		
 		EASY_LOG("start update..");
@@ -21,6 +32,14 @@ int main(int argc, char *argv[]) {
 			s.update();
 		}
 	} else {
+		s.on(sConnected, [](void*){
+			EASY_LOG("Connected..");
+		});
+
+		s.on(sError, [](void*){
+			EASY_LOG("Error..");
+		});
+
 		s.connect(port, ip);
 
 		EASY_LOG("start update..");

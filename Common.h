@@ -1,5 +1,7 @@
 #pragma once
 
+#define EASY_DEBUG	1
+
 #if defined(_WINDOWS)
 	#define EASY_WIN 1
 #else
@@ -27,12 +29,16 @@ using namespace std;
 #define EASY_NS_END		}
 #define EASY_NS_USING	using namespace easy_socket
 
-#define EASY_LOG(...)		\
-	{	\
-	char _str[1024] = {0};	\
-	sprintf(_str, __VA_ARGS__);	\
-	printf("%s\n", _str); \
-	}
+#if EASY_DEBUG
+	#define EASY_LOG(...)		\
+		{	\
+		char _str[1024] = {0};	\
+		sprintf(_str, __VA_ARGS__);	\
+		printf("%s\n", _str); \
+		}
+#else
+	#define EASY_LOG
+#endif
 
 #if EASY_LINUX
 
@@ -54,3 +60,8 @@ using namespace std;
 #else
 
 #endif
+
+enum InternalError {
+	None,
+	SocketInvalid,
+};

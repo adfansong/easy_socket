@@ -21,13 +21,14 @@ SocketState* SocketState::create(Socket *s, StateType t, void *p)
 {
 	SocketState *state = 0;
 	switch (t) {
-	case Connecting:
+	case sConnecting:
+	case sClose:
 		state = new SocketStateConnecting(s, p);
 		break;
-	case Connected:
+	case sConnected:
 		state = new SocketStateConnected(s, p);
 		break;
-	case Listening:
+	case sListening:
 		state = new SocketStateListening(s, p);
 		break;
 	default:
@@ -53,7 +54,8 @@ void SocketStateConnecting::update()
 		if (socket->checkConnected()) {
 			socket->onConnect();
 		} else {
-			socket->setState(Disconnected);
+			socket->setState(sDisconnected);
+			socket->emitError();
 		}
 	}
 }
@@ -67,12 +69,12 @@ SocketStateConnected::SocketStateConnected(Socket *s, void *p)
 void SocketStateConnected::update()
 {
 	// TODO: do read, write..
-	if (socket->canRead()) {
-		
+	int ret = socket->select();
+	if (ret & 1) {
+		// do read
 	}
-
-	if (socket->canWrite()) {
-
+	if (ret & 2) {
+		// do write
 	}
 }
 
@@ -85,8 +87,8 @@ SocketStateListening::SocketStateListening(Socket *s, void *p)
 void SocketStateListening::update()
 {
 	if (!socket->accept()) {
-		// TODO: emit error
-		socket->setState(Disconnected);
+		socket->setState(sDisconnected);
+		socket->emitError();
 	}
 }
 
