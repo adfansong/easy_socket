@@ -3,9 +3,11 @@
 #include "Common.h"
 #include "SocketState.h"
 #include "ISocketBaseEvent.h"
+#include "Buffer.h"
 
 #include <vector>
 #include <map>
+#include <functional>
 
 EASY_NS_BEGIN
 
@@ -20,20 +22,24 @@ class SocketError {
 	string msg;
 };
 
+typedef void(*EventFunc)(void*);
+
 class Socket : public ISocketBaseEvent {
 public:
-	typedef void (*EventFunc)(void *p);
-
 	friend class SocketState;
 	friend class SocketStateConnecting;
+	friend class SocketStateConnected;
 	friend class SocketStateListening;
 
+	typedef vector<Socket*> SocketVec;
+
 	Socket();
+	Socket(SocketBase *p);
 	virtual ~Socket();
 
 	bool connect(int port, const char *ip);
 	bool listen(int port, const char *ip);
-	bool send(const char *buf, int len);
+	bool send(const char *buf, int len = 0);
 	void close();
 	
 	// Note: need update state manually
@@ -41,6 +47,7 @@ public:
 	
 	bool isConnected();
 	bool isClosed();
+	int getState();
 
 	virtual void onError(int error, int internalError);
 	virtual void onClose(bool hasError = false);
@@ -57,11 +64,15 @@ public:
 
 	void on(int name, EventFunc cb);
 	void off(int name, EventFunc cb);
+
+	Socket* getConnection(int i);
+	SocketVec& getConnections() { return connections; }
 protected:
 	typedef vector<EventFunc> EventFuncVec;
 	typedef map<int, EventFuncVec*> EventMap;
 
 	void setState(StateType type, void *param = 0);
+	void recv();
 	bool accept();
 	bool checkConnected();
 	void emitError();
@@ -72,6 +83,7 @@ protected:
 	SocketState *state;
 
 	EventMap events;
+	SocketVec connections;
 };
 
 EASY_NS_END

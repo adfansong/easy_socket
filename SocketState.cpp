@@ -22,7 +22,6 @@ SocketState* SocketState::create(Socket *s, StateType t, void *p)
 	SocketState *state = 0;
 	switch (t) {
 	case sConnecting:
-	case sClose:
 		state = new SocketStateConnecting(s, p);
 		break;
 	case sConnected:
@@ -31,6 +30,7 @@ SocketState* SocketState::create(Socket *s, StateType t, void *p)
 	case sListening:
 		state = new SocketStateListening(s, p);
 		break;
+	case sClose:
 	default:
 		state = new SocketState(s, p);
 		break;
@@ -68,13 +68,10 @@ SocketStateConnected::SocketStateConnected(Socket *s, void *p)
 
 void SocketStateConnected::update()
 {
-	// TODO: do read, write..
 	int ret = socket->select();
 	if (ret & 1) {
 		// do read
-	}
-	if (ret & 2) {
-		// do write
+		socket->recv();
 	}
 }
 

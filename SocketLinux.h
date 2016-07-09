@@ -15,7 +15,7 @@ public:
 
 	virtual bool create(int protocol);
 	virtual void close(bool hasError = false);
-	virtual int send(const void *buf, size_t len);
+	virtual bool send(const void *buf, size_t len);
 	virtual int recv(void *buf, size_t len);
 
 	virtual bool bind(int port, const char *ip);
@@ -31,6 +31,7 @@ protected:
 	virtual bool noDelay(bool no);
 	virtual bool reuseAddr(bool use);
 	virtual int getSockFd() { return sock; }
+	virtual bool setSendBufferSize(int size);
 
 	// ios need this
 	bool noSigPipe(bool no);

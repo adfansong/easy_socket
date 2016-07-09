@@ -1,7 +1,6 @@
 #include "Socket.h"
 #include "SocketLinux.h"
 
-
 EASY_NS_BEGIN
 
 Socket::Socket()
@@ -20,6 +19,12 @@ Socket::Socket()
 	setState(sDisconnected);
 }
 
+Socket::Socket(SocketBase *p)
+	: impl(p)
+{
+	impl->setDelegate(this);
+}
+
 Socket::~Socket()
 {
 	if (impl) {
@@ -31,6 +36,15 @@ Socket::~Socket()
 		delete state;
 		state = 0;
 	}
+
+	SocketVec::iterator itr = connections.begin();
+	for (; itr != connections.end(); ++itr) {
+		Socket *p = *itr;
+		if (p) {
+			delete p;
+		}
+	}
+	connections.clear();
 }
 
 bool Socket::connect(int port, const char *ip)
@@ -80,9 +94,12 @@ bool Socket::send(const char *buf, int len)
 		EASY_LOG("Socket::send error: closed.");
 		return false;
 	}
+	
+	if (len == 0) {
+		len = strlen(buf) + 1;
+	}
 
-	// TODO
-	return true;
+	return impl ? impl->send(buf, len) : false;
 }
 
 void Socket::close()
@@ -97,6 +114,19 @@ void Socket::update()
 	if (state) {
 		state->update();
 	}
+
+	// update connections
+	SocketVec::iterator itr = connections.begin();
+	for (; itr != connections.end(); ) {
+		(*itr)->update();
+
+		// remove closed
+		if ((*itr)->isClosed()) {
+			itr = connections.erase(itr);
+		} else {
+			++itr;
+		}
+	}
 }
 
 bool Socket::isConnected()
@@ -107,6 +137,11 @@ bool Socket::isConnected()
 bool Socket::isClosed()
 {
 	return state && state->getType() == sClose;
+}
+
+int Socket::getState()
+{
+	return state ? state->getType() : -1;
 }
 
 void Socket::onError(int error, int internalError)
@@ -128,7 +163,11 @@ void Socket::onListening()
 
 void Socket::onConnection(SocketBase *s)
 {
-	emit(sConnection, s);
+	Socket *ps = new Socket(s);
+	ps->setState(sConnected);
+	connections.push_back(ps);
+
+	emit(sConnection, ps);
 }
 
 void Socket::onConnect()
@@ -199,11 +238,37 @@ void Socket::off(int name, EventFunc cb)
 
 void Socket::setState(StateType type, void *param)
 {
+	if (state && state->getType() == type) {
+		return;
+	}
+
 	if (state) {
 		delete state;
 	}
 
 	state = SocketState::create(this, type, param);
+}
+
+void Socket::recv()
+{
+	if (impl) {
+		char p[65535];
+		int ret = impl->recv(p, sizeof(p));
+		if (ret > 0) {
+			Buffer* buffer = new Buffer(ret);
+			buffer->write(p, 0, ret);
+
+			//listener need delete the buffer.
+			emit(sData, buffer);
+
+			buffer->release();
+		} else if (ret == 0) {
+			impl->close();
+		} else if (ret == -1) {
+			emitError();
+			impl->close(true);
+		}
+	}
 }
 
 bool Socket::accept()
@@ -239,5 +304,15 @@ void Socket::emit(int name, void *p)
 		}
 	}
 }
+
+Socket* Socket::getConnection(int i)
+{
+	if (i >= 0 && i < connections.size()) {
+		return connections[i];
+	} else {
+		return 0;
+	}
+}
+
 
 EASY_NS_END

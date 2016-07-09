@@ -15,11 +15,8 @@ SocketBase::~SocketBase()
 		addr = 0;
 	}
 
-	close();
-
 	if (del) {
-		delete del;
-		del = 0;
+		del->release();
 	}
 }
 
@@ -108,9 +105,13 @@ void SocketBase::setSockAddr(SockAddr *p)
 void SocketBase::setDelegate(ISocketBaseEvent *p)
 {
 	if (del) {
-		delete del;
+		del->release();
 	}
+
 	del = p;
+	if (del) {
+		del->retain();
+	}
 }
 
 void SocketBase::setError(int e, int ie /*= 0*/)

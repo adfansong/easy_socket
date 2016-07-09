@@ -61,7 +61,64 @@ using namespace std;
 
 #endif
 
+EASY_NS_BEGIN
+
 enum InternalError {
 	None,
 	SocketInvalid,
 };
+
+class Ref
+{
+	int  m_refer;
+
+	//this can avoid that invoke release when in destructor
+	bool m_lock;
+
+protected:
+	//u must invoke this function in your destructor function
+	void lock()
+	{
+		m_lock = true;
+	}
+
+public:
+	virtual ~Ref()
+	{
+		//this must be someone call delete directly.
+		if (m_refer > 0)
+		{
+			//EASY_LOG("detect directly call delete in Ref \n");
+		}
+	}
+
+	Ref()
+	{
+		m_refer = 1;
+
+		m_lock = false;
+	}
+
+	void release()
+	{
+		if (--m_refer == 0)
+		{
+			if (!m_lock)
+			{
+				delete this;
+			}
+		}
+	}
+
+	void retain()
+	{
+		++m_refer;
+	}
+
+	int ref()
+	{
+		return m_refer;
+	}
+};
+
+EASY_NS_END

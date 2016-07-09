@@ -6,7 +6,7 @@ EASY_NS_BEGIN
 
 class SocketBase;
 
-class ISocketBaseEvent {
+class ISocketBaseEvent : public Ref {
 public:
 	virtual ~ISocketBaseEvent() {};
 

@@ -13,7 +13,7 @@ SocketLinux::SocketLinux()
 
 SocketLinux::~SocketLinux()
 {
-
+	close();
 }
 
 bool SocketLinux::create(int protocol)
@@ -33,6 +33,7 @@ bool SocketLinux::create(int protocol)
 			if (set_reuseAddr) {
 				reuseAddr(true);
 			}
+			setSendBufferSize(65535);
 			// apple: no signal pipe
 			noSigPipe(true);
 			return true;
@@ -51,35 +52,50 @@ void SocketLinux::close(bool hasError)
 	if (sock != -1) {
 		::close(sock);
 		sock = -1;
+		
+		SocketBase::close(hasError);
 	}
-
-	SocketBase::close(hasError);
 }
 
-int SocketLinux::send(const void *buf, size_t len)
+bool SocketLinux::send(const void *buf, size_t len)
 {
 	if (sock == -1) {
+		setError(0, SocketInvalid);
 		EASY_LOG("SocketLinux::send error: invalid socket");
-		return -1;
+		return false;
 	}
 
 	size_t ret = ::send(sock, buf, len, 0);
 	if (ret == -1) {
-		EASY_LOG("SocketLinux::send error: %s", strerror(errno));
+		// unblock
+		if (errno == EAGAIN) {
+			EASY_LOG("SocketLinux::send warning: send buffer is full.");
+		} else {
+			setError(errno);
+			EASY_LOG("SocketLinux::send error: %s", strerror(errno));
+		}
+		return false;
 	}
-	return ret;
+	
+	return ret == len;
 }
 
 int SocketLinux::recv(void *buf, size_t len)
 {
 	if (sock == -1) {
+		setError(0, SocketInvalid);
 		EASY_LOG("SocketLinux::recv error: invalid socket");
 		return -1;
 	}
 
-	size_t ret = ::recv(sock, buf, len, 0);
+	size_t ret = ::recv(sock, buf, len, 0);	
 	if (ret == -1) {
-		EASY_LOG("SocketLinux::recv error: %s", strerror(errno));
+		if (errno == EAGAIN) {
+			ret = -2;
+		} else {
+			setError(errno);
+			EASY_LOG("SocketLinux::recv error: %s", strerror(errno));
+		}
 	}
 	return ret;
 }
@@ -142,7 +158,6 @@ bool SocketLinux::accept(SockAddr *p)
 	int s = ::accept(sock, p->pointer(), &len);
 	bool ret = true;
 	if (s != -1) {
-		// TODO: save connections..
 		SocketLinux *conn = new SocketLinux();
 		conn->sock = s;
 		conn->setSockAddr(p);
@@ -268,6 +283,12 @@ bool SocketLinux::noSigPipe(bool no)
 #endif
 	return true;
 }
+
+bool SocketLinux::setSendBufferSize(int size)
+{
+	setsockopt(sock, SOL_SOCKET, SO_SNDBUF, &size, sizeof(size));
+}
+
 
 EASY_NS_END
 

@@ -11,11 +11,12 @@ class SocketBase {
 public:	
 
 	SocketBase();
-	virtual ~SocketBase() = 0;
+	virtual ~SocketBase();
 
 	virtual bool create(int protocol) = 0;
 	virtual void close(bool hasError = false);
-	virtual int send(const void *buf, size_t len) = 0;
+	virtual bool send(const void *buf, size_t len) = 0;
+	// -2 again, -1 error, 0 close, > 0 ok
 	virtual int recv(void *buf, size_t len) = 0;
 	
 	virtual bool bind(int port, const char *ip) = 0;
@@ -41,7 +42,7 @@ public:
 	void setSockAddr(SockAddr *p);
 	void setDelegate(ISocketBaseEvent *p);
 	void setUnblock(bool un) { set_unblock = un; }
-	void setReuseAddr(bool re) { set_reuseAddr = re; }
+	void setReuseAddr(bool re) { set_reuseAddr = re; }	
 
 	void emitError();
 protected:
@@ -50,6 +51,7 @@ protected:
 	virtual bool noDelay(bool no) = 0;
 	virtual bool reuseAddr(bool use) = 0;
 	virtual int getSockFd() { return -1; }
+	virtual bool setSendBufferSize(int size) = 0;
 
 	void setError(int e, int ie = 0);
 
