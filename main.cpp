@@ -2,41 +2,41 @@
 
 EASY_NS_USING;
 
-Socket s;
-
 int main(int argc, char *argv[]) {
 	bool client = true;
 	char ip[] = "127.0.0.1";
+	//char ip[] = "::1";
 	int port = 9999;
 
 	if (argc == 1) {
 		client = false;
 	}	
 	
-	if (!client) {
-		s.on(sListening, [](void*){
+	Socket s;	
+	if (!client) {		
+		s.on(sListening, ([](void* p)->void{
 			EASY_LOG("Listening..");
-		});
+		}));
 
-		s.on(sConnection, [](void* p){
+		s.on(sConnection, [&s](void* p)->void{
 			EASY_LOG("Connection..");
 
 			Socket *ps = (Socket*)p;
 			ps->send("Hello, this is server!");
 
-			ps->on(sData, [](void* p){
+			ps->on(sData, [](void* p)->void{
 				Buffer *buffer = (Buffer*)p;
 				if (buffer) {
 					EASY_LOG("Data: %s", buffer->toString());
 				}
 			});
 
-			ps->on(sClose, [](void *p) {
+			ps->on(sClose, [&s](void *p)->void {
 				EASY_LOG("Connection closed");
 			});
 		});
 
-		s.on(sError, [](void*){
+		s.on(sError, [](void*)->void{
 			EASY_LOG("Error..");
 		});
 
@@ -47,12 +47,12 @@ int main(int argc, char *argv[]) {
 			s.update();
 		}
 	} else {				
-		s.on(sConnected, [](void*){
+		s.on(sConnected, [&s](void*)->void{
 			EASY_LOG("Connection..");
 			s.send("Hello, this is client!");
 		});
 
-		s.on(sError, [](void*){
+		s.on(sError, [](void*)->void{
 			EASY_LOG("Error..");
 		});
 
@@ -63,7 +63,7 @@ int main(int argc, char *argv[]) {
 			}
 		});
 
-		s.on(sClose, [](void *p) {
+		s.on(sClose, [](void *p)->void {
 			EASY_LOG("Connection closed.");
 		});
 

@@ -83,9 +83,11 @@ SocketStateListening::SocketStateListening(Socket *s, void *p)
 
 void SocketStateListening::update()
 {
-	if (!socket->accept()) {
-		socket->setState(sDisconnected);
-		socket->emitError();
+	if (socket->getConnections().size() < socket->getMaxConnections()) {
+		if (!socket->accept()) {
+			socket->setState(sDisconnected);
+			socket->emitError();
+		}
 	}
 }
 

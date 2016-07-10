@@ -4,7 +4,7 @@
 EASY_NS_BEGIN
 
 Socket::Socket()
-	: state(0)
+	: state(0), maxConnections(10)
 {
 #if EASY_LINUX
 	impl = new SocketLinux();
@@ -45,6 +45,15 @@ Socket::~Socket()
 		}
 	}
 	connections.clear();
+
+	EventMap::iterator it = events.begin();
+	for (; it != events.end(); ++it) {
+		EventFuncVec *p = it->second;
+		if (p) {
+			delete p;
+		}
+	}
+	events.clear();
 }
 
 bool Socket::connect(int port, const char *ip)
@@ -123,6 +132,7 @@ void Socket::update()
 		// remove closed
 		if ((*itr)->isClosed()) {
 			itr = connections.erase(itr);
+			EASY_LOG("total connections: %d", connections.size());
 		} else {
 			++itr;
 		}
@@ -212,30 +222,6 @@ void Socket::on(int name, EventFunc cb)
 	}
 }
 
-void Socket::off(int name, EventFunc cb)
-{
-	EventMap::iterator itr = events.find(name);
-	if (itr != events.end()) {
-		EventFuncVec *p = itr->second;
-		if (p) {
-			EventFuncVec::iterator it = p->begin();
-			for (; it != p->end(); ++it) {
-				if (*it == cb) {
-					break;
-				}
-			}
-
-			if (it != p->end()) {
-				p->erase(it);
-			}
-		}
-
-		if (!p || p->empty()) {
-			events.erase(itr);
-		}
-	}
-}
-
 void Socket::setState(StateType type, void *param)
 {
 	if (state && state->getType() == type) {
@@ -300,7 +286,7 @@ void Socket::emit(int name, void *p)
 		
 		EventFuncVec::iterator it = arr->begin();
 		for (; it != arr->end(); ++it) {
-			(*(*it))(p);
+			(*it)(p);
 		}
 	}
 }

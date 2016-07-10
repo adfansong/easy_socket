@@ -22,7 +22,7 @@ class SocketError {
 	string msg;
 };
 
-typedef void(*EventFunc)(void*);
+typedef function< void(void*) > EventFunc;
 
 class Socket : public ISocketBaseEvent {
 public:
@@ -63,10 +63,12 @@ public:
 	bool canWrite();
 
 	void on(int name, EventFunc cb);
-	void off(int name, EventFunc cb);
 
 	Socket* getConnection(int i);
 	SocketVec& getConnections() { return connections; }
+	int getMaxConnections() { return maxConnections; }
+
+	void setMaxConnections(int max) { maxConnections = max; }
 protected:
 	typedef vector<EventFunc> EventFuncVec;
 	typedef map<int, EventFuncVec*> EventMap;
@@ -84,6 +86,8 @@ protected:
 
 	EventMap events;
 	SocketVec connections;
+	
+	int maxConnections;
 };
 
 EASY_NS_END
