@@ -42,6 +42,9 @@ public:
 	SocketStateConnecting(Socket *s, void *p);
 
 	virtual void update();
+
+private:
+	time_t start;
 };
 
 class SocketStateConnected : public SocketState {

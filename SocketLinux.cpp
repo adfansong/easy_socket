@@ -20,6 +20,10 @@ bool SocketLinux::create(int protocol)
 {
 	close();
 
+	if (protocol == -1) {
+		protocol = this->protocol;
+	}
+
 	if (protocol == 4 || protocol == 6) {
 		this->protocol = protocol;
 
@@ -57,7 +61,7 @@ void SocketLinux::close(bool hasError)
 	}
 }
 
-bool SocketLinux::send(const void *buf, size_t len)
+bool SocketLinux::send(const char *buf, size_t len)
 {
 	if (sock == -1) {
 		setError(0, SocketInvalid);
@@ -80,7 +84,7 @@ bool SocketLinux::send(const void *buf, size_t len)
 	return ret == len;
 }
 
-int SocketLinux::recv(void *buf, size_t len)
+int SocketLinux::recv(char *buf, size_t len)
 {
 	if (sock == -1) {
 		setError(0, SocketInvalid);
@@ -100,6 +104,11 @@ int SocketLinux::recv(void *buf, size_t len)
 	return ret;
 }
 
+void SocketLinux::shutdown()
+{
+	::shutdown(sock, SHUT_RDWR);
+}
+
 bool SocketLinux::bind(int port, const char *ip)
 {
 	if (sock == -1) {
@@ -117,6 +126,17 @@ bool SocketLinux::bind(int port, const char *ip)
 		EASY_LOG("SocketLinux::bind error: %s", strerror(errno));
 		return false;
 	}
+}
+
+bool SocketLinux::bind(addrinfo *addrInfo)
+{
+	if (addr) {
+		addr->release();
+	}
+
+	addr = new SockAddr(addrInfo);
+
+	return bind(0, 0);
 }
 
 bool SocketLinux::listen()
@@ -214,6 +234,17 @@ bool SocketLinux::connect(int port, const char *ip)
 	}
 }
 
+bool SocketLinux::connect(addrinfo *addrInfo)
+{
+	if (addr) {
+		addr->release();
+	}
+
+	addr = new SockAddr(addrInfo);
+
+	return connect(0, 0);
+}
+
 bool SocketLinux::checkConnected()
 {
 	int error;
@@ -234,36 +265,17 @@ bool SocketLinux::checkConnected()
 	return true;
 }
 
+const char* SocketLinux::formatError(int error)
+{
+	return strerror(error);
+}
+
 bool SocketLinux::unblock()
 {
 	int flags = fcntl(sock, F_GETFL, 0);
 	int ret = fcntl(sock, F_SETFL, flags | O_NONBLOCK);
 	if (ret == -1) {
 		EASY_LOG("SocketLinux::unblock.fcntl error: %s", strerror(errno));
-		return false;
-	}
-
-	return true;
-}
-
-bool SocketLinux::noDelay(bool no)
-{
-	int d = no ? 1 : 0;
-	int ret = setsockopt(sock, IPPROTO_TCP, TCP_NODELAY, (const void *)&d, sizeof(d));
-	if (ret == -1) {
-		EASY_LOG("SocketLinux::noDelay.setsockopt error: %s", strerror(errno));
-		return false;
-	}
-
-	return true;
-}
-
-bool SocketLinux::reuseAddr(bool use)
-{
-	int d = use ? 1 : 0;
-	int ret = setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (const void *)&d, sizeof(d));
-	if (ret == -1) {
-		EASY_LOG("SocketLinux::reuseAddr.setsockopt error: %s", strerror(errno));
 		return false;
 	}
 
@@ -283,12 +295,6 @@ bool SocketLinux::noSigPipe(bool no)
 #endif
 	return true;
 }
-
-bool SocketLinux::setSendBufferSize(int size)
-{
-	setsockopt(sock, SOL_SOCKET, SO_SNDBUF, &size, sizeof(size));
-}
-
 
 EASY_NS_END
 

@@ -11,12 +11,13 @@ SocketBase::SocketBase()
 SocketBase::~SocketBase()
 {
 	if (addr) {
-		delete addr;
+		addr->release();
 		addr = 0;
 	}
 
 	if (del) {
 		del->release();
+		del = 0;
 	}
 }
 
@@ -88,18 +89,22 @@ SockAddr* SocketBase::getSockAddr(int port, const char *ip)
 	if (!addr) {
 		addr = new SockAddr(protocol);
 	}
-	addr->setPort(port);
-	addr->setIp(ip);
 
+	if (port != 0 || ip != 0) {
+		addr->setPort(port);
+		addr->setIp(ip);
+	}
+	
 	return addr;
 }
 
 void SocketBase::setSockAddr(SockAddr *p)
 {
 	if (addr) {
-		delete addr;
+		addr->release();
 	}
 	addr = p;
+	addr->retain();
 }
 
 void SocketBase::setDelegate(ISocketBaseEvent *p)
@@ -129,6 +134,40 @@ void SocketBase::emitError()
 	close(true);
 }
 
+bool SocketBase::noDelay(bool no)
+{
+	int d = no ? 1 : 0;
+	int ret = setsockopt(getSockFd(), IPPROTO_TCP, TCP_NODELAY, (const char *)&d, sizeof(d));
+	if (ret == -1) {
+		EASY_LOG("SocketBase::noDelay.setsockopt error: %s", strerror(errno));
+		return false;
+	}
+
+	return true;
+}
+
+bool SocketBase::reuseAddr(bool use)
+{
+	int d = use ? 1 : 0;
+	int ret = setsockopt(getSockFd(), SOL_SOCKET, SO_REUSEADDR, (const char *)&d, sizeof(d));
+	if (ret == -1) {
+		EASY_LOG("SocketBase::reuseAddr.setsockopt error: %s", strerror(errno));
+		return false;
+	}
+
+	return true;
+}
+
+bool SocketBase::setSendBufferSize(int size)
+{
+	int ret = setsockopt(getSockFd(), SOL_SOCKET, SO_SNDBUF, (const char *)&size, sizeof(size));
+	if (ret == -1) {
+		EASY_LOG("SocketBase::setSendBufferSize.setsockopt error: %s", strerror(errno));
+		return false;
+	}
+
+	return true;
+}
 
 
 EASY_NS_END

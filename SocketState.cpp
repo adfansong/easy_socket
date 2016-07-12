@@ -45,17 +45,27 @@ SocketState* SocketState::create(Socket *s, StateType t, void *p)
 SocketStateConnecting::SocketStateConnecting(Socket *s, void *p)
 	: SocketState(s, p)
 {
-	
+	start = time(0);
 }
 
 void SocketStateConnecting::update()
-{
+{	
+	float timeout = socket->getConnectTimeout();
+	if (timeout > 0 && (time(0) - start) >= timeout) {
+		// Note: after setState, this object is released!
+		Socket *s = socket;
+		s->setState(sDisconnected);
+		s->shutdown();
+		return;
+	}
+
 	if (socket->canWrite()) {
 		if (socket->checkConnected()) {
 			socket->onConnect();
 		} else {
-			socket->setState(sDisconnected);
-			socket->emitError();
+			Socket *s = socket;
+			s->setState(sDisconnected);
+			s->emitError();
 		}
 	}
 }
@@ -85,8 +95,9 @@ void SocketStateListening::update()
 {
 	if (socket->getConnections().size() < socket->getMaxConnections()) {
 		if (!socket->accept()) {
-			socket->setState(sDisconnected);
-			socket->emitError();
+			Socket *s = socket;
+			s->setState(sDisconnected);
+			s->emitError();
 		}
 	}
 }

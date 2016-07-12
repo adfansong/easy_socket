@@ -20,6 +20,23 @@ SockAddr::SockAddr(int protocol)
 	}
 }
 
+SockAddr::SockAddr(addrinfo *addrInfo)
+{
+	protocol = addrInfo->ai_family == AF_INET ? 4 : 6;
+
+	if (protocol == 4) {
+		sockaddr_in *p = new sockaddr_in();
+		ptr.addr_in = p;
+
+		memcpy(p, addrInfo->ai_addr, sizeof(sockaddr_in));
+	} else {
+		sockaddr_in6 *p = new sockaddr_in6();
+		ptr.addr_in6 = p;
+		
+		memcpy(p, addrInfo->ai_addr, sizeof(sockaddr_in6));
+	}
+}
+
 SockAddr::~SockAddr()
 {
 	if (ptr.addr) {
@@ -87,5 +104,11 @@ void SockAddr::setPort(int port)
 		ptr.addr_in6->sin6_port = htons(port);
 	}
 }
+
+void SockAddr::setAddr(sockaddr *addr)
+{
+	ptr.addr = addr;
+}
+
 
 EASY_NS_END

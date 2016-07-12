@@ -2,16 +2,16 @@
 
 #include "Common.h"
 
-#if EASY_LINUX
+#if EASY_WIN
 
 #include "SocketBase.h"
 
 EASY_NS_BEGIN
 
-class SocketLinux : public SocketBase {
+class SocketWin : public SocketBase {
 public:
-	SocketLinux();
-	virtual ~SocketLinux();
+	SocketWin();
+	virtual ~SocketWin();
 
 	virtual bool create(int protocol);
 	virtual void close(bool hasError = false);
@@ -26,18 +26,15 @@ public:
 
 	virtual bool connect(int port, const char *ip);
 	virtual bool connect(addrinfo *addrInfo);
-
-	virtual bool checkConnected();
 	virtual const char* formatError(int error);
 protected:
 	
 	virtual bool unblock();
 	virtual int getSockFd() { return sock; }
 
-	// ios need this
-	bool noSigPipe(bool no);
+	static int __inited;
 
-	int sock;
+	SOCKET sock;	
 };
 
 EASY_NS_END

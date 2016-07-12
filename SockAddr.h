@@ -4,9 +4,10 @@
 
 EASY_NS_BEGIN
 
-class SockAddr {
+class SockAddr : public Ref {
 public:
 	SockAddr(int protocol);
+	SockAddr(addrinfo *addrInfo);
 	~SockAddr();
 
 	int length();
@@ -20,6 +21,7 @@ public:
 	void setIp(const char* ip);	
 	void setPort(int port);
 
+	void setAddr(sockaddr *addr);
 protected:
 	// 4, 6
 	int protocol;

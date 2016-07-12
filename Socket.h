@@ -14,12 +14,15 @@ EASY_NS_BEGIN
 class SocketBase;
 
 class SocketError {
-	SocketError(int code, int inter = 0, const char *msg = "")
-		: code(code), internalCode(inter), msg(msg) {}
+public:
+	SocketError(int code, int inter = 0, const char *msg = "", SocketBase* s = 0);
+	
+	void formatError();	
 
 	int code;
 	int internalCode;
 	string msg;
+	SocketBase* s;
 };
 
 typedef function< void(void*) > EventFunc;
@@ -38,9 +41,11 @@ public:
 	virtual ~Socket();
 
 	bool connect(int port, const char *ip);
-	bool listen(int port, const char *ip);
+	bool listen(int port, const char *ip = 0);
 	bool send(const char *buf, int len = 0);
 	void close();
+	void shutdown();
+	bool create(int protocol = -1);
 	
 	// Note: need update state manually
 	void update();
@@ -67,8 +72,11 @@ public:
 	Socket* getConnection(int i);
 	SocketVec& getConnections() { return connections; }
 	int getMaxConnections() { return maxConnections; }
+	float getConnectTimeout() { return connectTimeoutSecs; }
 
 	void setMaxConnections(int max) { maxConnections = max; }
+	void setConnectTimeout(float sec) { connectTimeoutSecs = sec; }
+	void setCheckIpv6Only(bool check) { checkIpv6Only = check; }
 protected:
 	typedef vector<EventFunc> EventFuncVec;
 	typedef map<int, EventFuncVec*> EventMap;
@@ -80,6 +88,8 @@ protected:
 	void emitError();
 
 	void emit(int name, void *p = 0);
+	// support ipv6-only
+	int checkProtocol(int port, const char *ip, bool passive = false);
 
 	SocketBase *impl;
 	SocketState *state;
@@ -88,6 +98,11 @@ protected:
 	SocketVec connections;
 	
 	int maxConnections;
+	// -1 means socket default timeout
+	float connectTimeoutSecs;
+
+	addrinfo* addrInfo;
+	bool checkIpv6Only;
 };
 
 EASY_NS_END

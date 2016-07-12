@@ -2,7 +2,7 @@
 
 #define EASY_DEBUG	1
 
-#if defined(_WINDOWS)
+#if defined(_WIN32)
 	#define EASY_WIN 1
 #else
 	#define EASY_LINUX 1
@@ -28,6 +28,9 @@ using namespace std;
 #define EASY_NS_BEGIN	namespace easy_socket {
 #define EASY_NS_END		}
 #define EASY_NS_USING	using namespace easy_socket
+
+#define EASY_BIND_CLASS(pfunc, cls)	\
+	std::bind(pfunc, cls, std::placeholders::_1)
 
 #if EASY_DEBUG
 	#define EASY_LOG(...)		\
@@ -59,12 +62,21 @@ using namespace std;
 
 #else
 
+#ifndef WIN32_LEAN_AND_MEAN
+	#define WIN32_LEAN_AND_MEAN
+#endif
+
+	#include <windows.h>
+	#include <winsock2.h>
+	#include <ws2tcpip.h>
+	#pragma comment(lib, "ws2_32.lib")
+
 #endif
 
 EASY_NS_BEGIN
 
 enum InternalError {
-	None,
+	InternalNone,
 	SocketInvalid,
 };
 
