@@ -1,6 +1,9 @@
 # easy_socket
 easy socket c++ interfaces, support ipv6 only, support windows, linux, android, ios.
 
+## change log
+More details and upgrade guides can be found in the [CHANGELOG](CHANGELOG.md).
+
 ## quick start
 ### server
 ```c++

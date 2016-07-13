@@ -380,7 +380,7 @@ int Socket::checkProtocol(int port, const char *ip, bool passive)
 {
 	int protocol = 4;
 	if (!checkIpv6Only) {
-		return protocol;
+		return impl ? impl->getProtocol() : protocol;
 	}
 
 	struct addrinfo hints, *res;
