@@ -70,12 +70,12 @@ private:
 
 class Server {
 public:
-	Server(int port) {
+	Server(int port, const char *ip = 0) {
 		s.on(sListening, EASY_BIND_CLASS(&Server::onListening, this));
 		s.on(sConnection, EASY_BIND_CLASS(&Server::onConnection, this));
 		s.on(sError, EASY_BIND_CLASS(&Server::onError, this));
 		
-		s.listen(port);
+		s.listen(port, ip);
 
 		for (;;) {
 			s.update();
@@ -139,7 +139,7 @@ void Client::onClose(void *p)
 int main(int argc, char *argv[]) {
 	char ip[] = "127.0.0.1";
 	//char ip[] = "::1";
-	int port = 9999;
+	int port = 9191;
 
 	bool client = true;
 	if (argc == 1) {
@@ -218,7 +218,7 @@ int main(int argc, char *argv[]) {
 
 	if (!client) {
 		Server s(port);
-	} else {
+	} else {		
 		Client c(port, ip);
 	}
 	

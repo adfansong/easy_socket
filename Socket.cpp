@@ -133,7 +133,8 @@ bool Socket::listen(int port, const char *ip)
 	}
 
 	if (impl) {
-		if (addrInfo) {
+		// Note: if ip zero, means any ip
+		if (addrInfo && ip) {
 			if (!impl->bind(addrInfo)) {
 				return false;
 			}
