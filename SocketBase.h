@@ -27,6 +27,15 @@ public:
 
 	virtual bool connect(int port, const char *ip) = 0;
 	virtual bool connect(addrinfo *addrInfo) = 0;
+
+	// udp
+	virtual int sendto(const char *buf, size_t len, int port, const char *ip) = 0;
+	virtual int sendto(const char *buf, size_t len, addrinfo *addrInfo) = 0;
+	virtual int recvfrom(char *buf, size_t len, SockAddr **pp) = 0;
+
+	// multi cast
+	virtual bool addMembership(const char *addr, const char *interface_ = 0);
+	virtual bool dropMembership(const char *addr, const char *interface_ = 0);
 	
 	// ret: 0 no, 1 read, 2 write
 	int select(int ms = 0);
@@ -47,6 +56,7 @@ public:
 	void setDelegate(ISocketBaseEvent *p);
 	void setUnblock(bool un) { set_unblock = un; }
 	void setReuseAddr(bool re) { set_reuseAddr = re; }	
+	void setSocketType(int type) { socket_type = type; }
 
 	void emitError();
 protected:
@@ -61,7 +71,7 @@ protected:
 
 	// 4, 6
 	int protocol;
-	SockAddr *addr;
+	SockAddr *addr;	
 
 	ISocketBaseEvent *del;
 	int errorCode;
@@ -69,6 +79,7 @@ protected:
 
 	bool set_unblock;
 	bool set_reuseAddr;
+	int socket_type;
 };
 
 EASY_NS_END

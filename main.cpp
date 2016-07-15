@@ -2,7 +2,10 @@
 
 EASY_NS_USING;
 
-#define TEST_CLASS	1
+#define TEST_CLASS			0
+#define TEST_TCP			1
+#define TEST_MULTICAST		0
+#define TEST_BROADCAST		0
 
 class Server;
 
@@ -137,7 +140,7 @@ void Client::onClose(void *p)
 }
 
 int main(int argc, char *argv[]) {
-	char ip[] = "127.0.0.1";
+	const char *ip = "127.0.0.1";
 	//char ip[] = "::1";
 	int port = 9191;
 
@@ -145,6 +148,8 @@ int main(int argc, char *argv[]) {
 	if (argc == 1) {
 		client = false;
 	}	
+
+#if TEST_TCP == 1
 
 #if TEST_CLASS != 1
 	
@@ -222,6 +227,82 @@ int main(int argc, char *argv[]) {
 		Client c(port, ip);
 	}
 	
+
+#endif
+
+
+#else
+	
+	Socket s;
+	s.setUdp();
+
+#if TEST_MULTICAST == 1
+	ip = "234.5.6.7";
+
+	s.addMembership(ip);
+#elif TEST_BROADCAST == 1
+
+	//ip = "255.255.255.255";
+	ip = "192.168.199.255";
+#endif
+	
+	if (!client) {
+		s.on(sListening, ([](void* p)->void{
+			EASY_LOG("Listening..");
+		}));
+
+		s.on(sMessage, [&s](void* p)->void{
+			UdpData *d = (UdpData*)p;
+			if (d) {
+				Buffer *buffer = d->buffer;
+				SockAddr *addr = d->addr;
+				EASY_LOG("Message: %s from %s:%d", buffer->toString(),
+					addr->getIp(), addr->getPort());
+				
+				s.send("Hello, this is server!", 0, addr->getPort(), addr->getIp());
+			}
+		});
+
+		s.on(sError, [](void*)->void{
+			EASY_LOG("Error..");
+		});
+
+		s.listen(port, 0);
+
+		EASY_LOG("start update..");
+		for (;;) {
+			s.update();
+		}
+	} else {
+		
+		s.on(sError, [](void*)->void{
+			EASY_LOG("Error..");
+		});
+
+		s.on(sMessage, [](void* p)->void{
+			UdpData *d = (UdpData*)p;
+			if (d) {
+				Buffer *buffer = d->buffer;
+				SockAddr *addr = d->addr;
+				EASY_LOG("Message: %s from %s:%d", buffer->toString(),
+					addr->getIp(), addr->getPort());
+			}
+		});
+
+		s.listen(port + 1, 0);
+
+		s.send("Hello, this is client!", 0, port, ip);
+
+		EASY_LOG("start update..");
+		for (;;) {
+			s.update();
+
+			if (s.isClosed()) {
+				break;
+			}
+		}
+	}
+
 
 #endif
 

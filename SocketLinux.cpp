@@ -28,7 +28,7 @@ bool SocketLinux::create(int protocol)
 		this->protocol = protocol;
 
 		int p = protocol == 4 ? PF_INET : PF_INET6;
-		sock = ::socket(p, SOCK_STREAM, 0);
+		sock = ::socket(p, socket_type, 0);
 		if (sock != -1) {
 			// default: unblock, reuse addr
 			if (set_unblock) {
@@ -116,7 +116,7 @@ bool SocketLinux::bind(int port, const char *ip)
 		EASY_LOG("SocketLinux::bind error: invalid socket");
 		return false;
 	}
-	
+
 	SockAddr *p = getSockAddr(port, ip);
 	int ret = ::bind(sock, p->pointer(), p->length());
 	if (ret != -1) {
@@ -243,6 +243,81 @@ bool SocketLinux::connect(addrinfo *addrInfo)
 	addr = new SockAddr(addrInfo);
 
 	return connect(0, 0);
+}
+
+int SocketLinux::sendto(const char *buf, size_t len, int port, const char *ip)
+{
+	if (sock == -1) {
+		setError(0, SocketInvalid);
+		EASY_LOG("SocketLinux::sendto error: invalid socket");
+		return false;
+	}
+
+	SockAddr *p = getSockAddr(port, ip);
+	int ret = ::sendto(sock, buf, len, 0, p->pointer(), p->length());
+	if (ret == -1) {
+		// unblock
+		int error = errno;
+		if (error == EAGAIN) {
+			EASY_LOG("SocketLinux::sendto warning: send buffer is full.");
+		} else {
+			setError(error);
+			EASY_LOG("SocketLinux::sendto error: %s", strerror(error));
+		}
+		return false;
+	}
+
+	return ret == len;
+}
+
+int SocketLinux::sendto(const char *buf, size_t len, addrinfo *addrInfo)
+{
+	if (addr) {
+		addr->release();
+	}
+
+	addr = new SockAddr(addrInfo);
+
+	return sendto(buf, len, 0, 0);
+}
+
+int SocketLinux::recvfrom(char *buf, size_t len, SockAddr **pp)
+{
+	if (sock == -1) {
+		setError(0, SocketInvalid);
+		EASY_LOG("SocketLinux::recvfrom error: invalid socket");
+		return -1;
+	}
+
+	SockAddr *temp = 0;
+	SockAddr *p = 0;
+	if (pp) {
+		p = *pp;
+	}
+	if (!p) {
+		temp = new SockAddr(protocol);
+		p = temp;
+
+		*pp = p;
+	}
+
+	socklen_t _len = p->length();
+	int ret = ::recvfrom(sock, buf, len, 0, p->pointer(), &_len);
+	if (ret == -1) {
+		int error = errno;
+		if (error == EAGAIN) {
+			ret = -2;
+		} else {
+			setError(error);
+			EASY_LOG("SocketLinux::recvfrom error: %s", strerror(error));
+		}
+	}
+
+	if (temp) {
+		temp->release();
+	}
+
+	return ret;
 }
 
 bool SocketLinux::checkConnected()

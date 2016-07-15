@@ -55,7 +55,7 @@ bool SocketWin::create(int protocol)
 		this->protocol = protocol;
 
 		int p = protocol == 4 ? PF_INET : PF_INET6;
-		sock = ::socket(p, SOCK_STREAM, 0);
+		sock = ::socket(p, socket_type, 0);
 		if (sock != -1) {
 			// default: unblock, reuse addr
 			if (set_unblock) {
@@ -272,8 +272,83 @@ bool SocketWin::connect(addrinfo *addrInfo)
 	}
 
 	addr = new SockAddr(addrInfo);
-	
+
 	return connect(0, 0);
+}
+
+int SocketWin::sendto(const char *buf, size_t len, int port, const char *ip)
+{
+	if (sock == -1) {
+		setError(0, SocketInvalid);
+		EASY_LOG("SocketWin::sendto error: invalid socket");
+		return false;
+	}
+
+	SockAddr *p = getSockAddr(port, ip);
+	int ret = ::sendto(sock, buf, len, 0, p->pointer(), p->length());
+	if (ret == -1) {
+		// unblock
+		int error = errno;
+		if (error == WSAEWOULDBLOCK) {
+			EASY_LOG("SocketWin::sendto warning: send buffer is full.");
+		} else {
+			setError(error);
+			EASY_LOG("SocketWin::sendto error: %s", strerror(error));
+		}
+		return false;
+	}
+
+	return ret == len;
+}
+
+int SocketWin::sendto(const char *buf, size_t len, addrinfo *addrInfo)
+{
+	if (addr) {
+		addr->release();
+	}
+
+	addr = new SockAddr(addrInfo);
+
+	return sendto(buf, len, 0, 0);
+}
+
+int SocketWin::recvfrom(char *buf, size_t len, SockAddr **pp)
+{
+	if (sock == -1) {
+		setError(0, SocketInvalid);
+		EASY_LOG("SocketWin::recvfrom error: invalid socket");
+		return -1;
+	}
+
+	SockAddr *temp = 0;
+	SockAddr *p = 0;
+	if (pp) {
+		p = *pp;
+	}
+	if (!p) {
+		temp = new SockAddr(protocol);
+		p = temp;
+
+		*pp = p;
+	}
+	
+	int _len = p->length();
+	int ret = ::recvfrom(sock, buf, len, 0, p->pointer(), &_len);
+	if (ret == -1) {
+		int error = errno;
+		if (error == WSAEWOULDBLOCK) {
+			ret = -2;
+		} else {
+			setError(error);
+			EASY_LOG("SocketWin::recvfrom error: %s", strerror(error));
+		}
+	}
+
+	if (temp) {
+		temp->release();
+	}
+
+	return ret;
 }
 
 const char* SocketWin::formatError(int error)
@@ -292,7 +367,6 @@ bool SocketWin::unblock()
 	
 	return true;
 }
-
 
 EASY_NS_END
 

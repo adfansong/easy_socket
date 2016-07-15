@@ -4,6 +4,7 @@
 #include "SocketState.h"
 #include "ISocketBaseEvent.h"
 #include "Buffer.h"
+#include "SockAddr.h"
 
 #include <vector>
 #include <map>
@@ -25,6 +26,15 @@ public:
 	SocketBase* s;
 };
 
+class UdpData : public Ref {
+public:
+	UdpData(Buffer *b, SockAddr *a);
+	~UdpData();
+
+	Buffer *buffer;
+	SockAddr *addr;
+};
+
 typedef function< void(void*) > EventFunc;
 
 class Socket : public ISocketBaseEvent {
@@ -36,6 +46,8 @@ public:
 
 	typedef vector<Socket*> SocketVec;
 
+	static inline const char* getMulticastAddr(int protocol);
+
 	Socket();
 	Socket(SocketBase *p);
 	virtual ~Socket();
@@ -46,6 +58,13 @@ public:
 	void close();
 	void shutdown();
 	bool create(int protocol = -1);
+
+	// udp
+	bool send(const char *buf, int len, int port, const char *ip);
+
+	// multi cast
+	bool addMembership(const char *addr = 0, const char *interface_ = 0);
+	bool dropMembership(const char *addr = 0, const char *interface_ = 0);
 	
 	// Note: need update state manually
 	void update();
@@ -73,10 +92,13 @@ public:
 	SocketVec& getConnections() { return connections; }
 	int getMaxConnections() { return maxConnections; }
 	float getConnectTimeout() { return connectTimeoutSecs; }
-
+	bool isUdp() { return socket_type == SOCK_DGRAM; }
+	
 	void setMaxConnections(int max) { maxConnections = max; }
 	void setConnectTimeout(float sec) { connectTimeoutSecs = sec; }
 	void setCheckIpv6Only(bool check) { checkIpv6Only = check; }
+	void setSocketType(int type);
+	void setUdp() { setSocketType(SOCK_DGRAM); }
 protected:
 	typedef vector<EventFunc> EventFuncVec;
 	typedef map<int, EventFuncVec*> EventMap;
@@ -86,6 +108,8 @@ protected:
 	bool accept();
 	bool checkConnected();
 	void emitError();
+	void recvfrom();
+	SockAddr* getUdpAddr();
 
 	void emit(int name, void *p = 0);
 	// support ipv6-only
@@ -103,6 +127,9 @@ protected:
 
 	addrinfo* addrInfo;
 	bool checkIpv6Only;
+
+	int socket_type;
+	SockAddr *addrUdp;
 };
 
 EASY_NS_END

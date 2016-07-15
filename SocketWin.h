@@ -26,6 +26,12 @@ public:
 
 	virtual bool connect(int port, const char *ip);
 	virtual bool connect(addrinfo *addrInfo);
+	
+	// udp
+	virtual int sendto(const char *buf, size_t len, int port, const char *ip);
+	virtual int sendto(const char *buf, size_t len, addrinfo *addrInfo);
+	virtual int recvfrom(char *buf, size_t len, SockAddr **pp = 0);
+
 	virtual const char* formatError(int error);
 protected:
 	

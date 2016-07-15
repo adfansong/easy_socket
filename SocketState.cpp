@@ -93,14 +93,20 @@ SocketStateListening::SocketStateListening(Socket *s, void *p)
 
 void SocketStateListening::update()
 {
-	if (socket->getConnections().size() < socket->getMaxConnections()) {
-		if (!socket->accept()) {
-			Socket *s = socket;
-			s->setState(sDisconnected);
-			s->emitError();
+	if (!socket->isUdp()) {
+		if (socket->getConnections().size() < socket->getMaxConnections()) {
+			if (!socket->accept()) {
+				Socket *s = socket;
+				s->setState(sDisconnected);
+				s->emitError();
+			}
+		}
+	} else {
+		if (socket->canRead()) {
+			// do read
+			socket->recvfrom();
 		}
 	}
 }
-
 
 EASY_NS_END

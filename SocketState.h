@@ -17,6 +17,8 @@ enum StateType {
 	sData,
 	sError,
 	sClose,
+
+	sMessage,
 };
 
 // base state
