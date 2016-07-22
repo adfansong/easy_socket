@@ -4,7 +4,10 @@ EASY_NS_BEGIN
 
 Buffer::~Buffer()
 {
-    delete m_buffer;
+	if (!m_weakptr) {
+		delete m_buffer;
+	}
+
     //for debug.
     //EASY_LOG("Buffer is delete \n");
 }
@@ -18,6 +21,7 @@ Buffer::Buffer(int len)
 
     m_len = len;
 
+	m_weakptr = false;
 }
 
 Buffer::Buffer(const char* str)
@@ -27,12 +31,15 @@ Buffer::Buffer(const char* str)
 
     strcpy(m_buffer,str);
 
+	m_weakptr = false;
 }
 
 Buffer::Buffer(char* str, int len)
 {
     m_buffer = str;
-    m_len = len;    
+    m_len = len;
+
+	m_weakptr = true;
 }
 
 bool Buffer::isBigEndian()
@@ -263,14 +270,131 @@ signed int Buffer::readInt32BE(int offset)
     return (signed int)readUInt32BE(offset);
 }
 
+long long Buffer::readInt64LE(int offset)
+{
+	if (offset > m_len - 8)
+	{
+		return 0;
+	}
+
+	long long tmp;
+	char* p = (char*)&tmp;
+
+	if (isBigEndian())
+	{
+		p[0] = m_buffer[offset + 7];
+		p[1] = m_buffer[offset + 6];
+		p[2] = m_buffer[offset + 5];
+		p[3] = m_buffer[offset + 4];
+		p[4] = m_buffer[offset + 3];
+		p[5] = m_buffer[offset + 2];
+		p[6] = m_buffer[offset + 1];
+		p[7] = m_buffer[offset];
+	} else
+	{
+		p[0] = m_buffer[offset];
+		p[1] = m_buffer[offset + 1];
+		p[2] = m_buffer[offset + 2];
+		p[3] = m_buffer[offset + 3];
+		p[4] = m_buffer[offset + 4];
+		p[5] = m_buffer[offset + 5];
+		p[6] = m_buffer[offset + 6];
+		p[7] = m_buffer[offset + 7];
+	}
+
+
+	return tmp;
+}
+
+long long Buffer::readInt64BE(int offset)
+{
+	if (offset > m_len - 8)
+	{
+		return 0;
+	}
+
+	long long tmp;
+	char* p = (char*)&tmp;
+
+	if (isBigEndian())
+	{
+		p[0] = m_buffer[offset];
+		p[1] = m_buffer[offset + 1];
+		p[2] = m_buffer[offset + 2];
+		p[3] = m_buffer[offset + 3];
+		p[4] = m_buffer[offset + 4];
+		p[5] = m_buffer[offset + 5];
+		p[6] = m_buffer[offset + 6];
+		p[7] = m_buffer[offset + 7];
+	} else
+	{
+		p[0] = m_buffer[offset + 7];
+		p[1] = m_buffer[offset + 6];
+		p[2] = m_buffer[offset + 5];
+		p[3] = m_buffer[offset + 4];
+		p[4] = m_buffer[offset + 3];
+		p[5] = m_buffer[offset + 2];
+		p[6] = m_buffer[offset + 1];
+		p[7] = m_buffer[offset];
+	}
+
+	return tmp;
+}
+
 float Buffer::readFloatLE(int offset)
 {
-    return (float)readUInt32LE(offset);
+	if (offset > m_len - 4)
+	{
+		return 0;
+	}
+
+	float tmp;
+	char* p = (char*)&tmp;
+
+	if (isBigEndian())
+	{
+		p[0] = m_buffer[offset + 3];
+		p[1] = m_buffer[offset + 2];
+		p[2] = m_buffer[offset + 1];
+		p[3] = m_buffer[offset];
+	} 
+	else
+	{
+		p[0] = m_buffer[offset];
+		p[1] = m_buffer[offset + 1];
+		p[2] = m_buffer[offset + 2];
+		p[3] = m_buffer[offset + 3];
+	}
+
+	return tmp;
 }
 
 float Buffer::readFloatBE(int offset)
 {
-    return (float)readUInt32BE(offset);
+	if (offset > m_len - 4)
+	{
+		return 0;
+	}
+
+	float tmp;
+	char* p = (char*)&tmp;
+
+	if (isBigEndian())
+	{
+		p[0] = m_buffer[offset];
+		p[1] = m_buffer[offset + 1];
+		p[2] = m_buffer[offset + 2];
+		p[3] = m_buffer[offset + 3];
+	} else
+	{
+		p[0] = m_buffer[offset + 3];
+		p[1] = m_buffer[offset + 2];
+		p[2] = m_buffer[offset + 1];
+		p[3] = m_buffer[offset];
+	}
+
+
+	return tmp;
 }
 
 double Buffer::readDoubleLE(int offset)
@@ -475,14 +599,118 @@ void Buffer::writeInt32BE(int value, int offset)
     writeUInt32BE((unsigned int)value,offset);
 }
 
+void Buffer::writeInt64LE(long long value, int offset)
+{
+	if (offset > m_len - 8)
+	{
+		return;
+	}
+
+	char* p = (char*)&value;
+
+	if (isBigEndian())
+	{
+		m_buffer[offset] = p[7];
+		m_buffer[offset + 1] = p[6];
+		m_buffer[offset + 2] = p[5];
+		m_buffer[offset + 3] = p[4];
+		m_buffer[offset + 4] = p[3];
+		m_buffer[offset + 5] = p[2];
+		m_buffer[offset + 6] = p[1];
+		m_buffer[offset + 7] = p[0];
+	} else
+	{
+		m_buffer[offset] = p[0];
+		m_buffer[offset + 1] = p[1];
+		m_buffer[offset + 2] = p[2];
+		m_buffer[offset + 3] = p[3];
+		m_buffer[offset + 4] = p[4];
+		m_buffer[offset + 5] = p[5];
+		m_buffer[offset + 6] = p[6];
+		m_buffer[offset + 7] = p[7];
+	}
+}
+
+void Buffer::writeInt64BE(long long value, int offset)
+{
+	if (offset > m_len - 8)
+	{
+		return;
+	}
+
+	char* p = (char*)&value;
+
+	if (isBigEndian())
+	{
+		m_buffer[offset] = p[0];
+		m_buffer[offset + 1] = p[1];
+		m_buffer[offset + 2] = p[2];
+		m_buffer[offset + 3] = p[3];
+		m_buffer[offset + 4] = p[4];
+		m_buffer[offset + 5] = p[5];
+		m_buffer[offset + 6] = p[6];
+		m_buffer[offset + 7] = p[7];
+	} else
+	{
+		m_buffer[offset] = p[7];
+		m_buffer[offset + 1] = p[6];
+		m_buffer[offset + 2] = p[5];
+		m_buffer[offset + 3] = p[4];
+		m_buffer[offset + 4] = p[3];
+		m_buffer[offset + 5] = p[2];
+		m_buffer[offset + 6] = p[1];
+		m_buffer[offset + 7] = p[0];
+	}
+}
+
 void Buffer::writeFloatLE(float value, int offset)
 {
-    writeUInt32LE((unsigned int)value,offset);
+	if (offset > m_len - 4)
+	{
+		return;
+	}
+
+	char* p = (char*)&value;
+
+	if (isBigEndian())
+	{
+		m_buffer[offset] = p[3];
+		m_buffer[offset + 1] = p[2];
+		m_buffer[offset + 2] = p[1];
+		m_buffer[offset + 3] = p[0];
+	} 
+	else
+	{
+		m_buffer[offset] = p[0];
+		m_buffer[offset + 1] = p[1];
+		m_buffer[offset + 2] = p[2];
+		m_buffer[offset + 3] = p[3];
+	}
 }
 
 void Buffer::writeFloatBE(float value, int offset)
 {
-    writeUInt32BE((unsigned int)value,offset);
+	if (offset > m_len - 4)
+	{
+		return;
+	}
+
+	char* p = (char*)&value;
+
+	if (isBigEndian())
+	{
+		m_buffer[offset] = p[0];
+		m_buffer[offset + 1] = p[1];
+		m_buffer[offset + 2] = p[2];
+		m_buffer[offset + 3] = p[3];
+	} 
+	else
+	{
+		m_buffer[offset] = p[3];
+		m_buffer[offset + 1] = p[2];
+		m_buffer[offset + 2] = p[1];
+		m_buffer[offset + 3] = p[0];
+	}
 }
 
 void Buffer::writeDoubleLE(double value, int offset)
@@ -550,5 +778,6 @@ void Buffer::writeDoubleBE(double value, int offset)
         m_buffer[offset+7] = p[0];
     }
 }
+
 
 EASY_NS_END

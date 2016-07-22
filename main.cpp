@@ -243,7 +243,7 @@ int main(int argc, char *argv[]) {
 #elif TEST_BROADCAST == 1
 
 	//ip = "255.255.255.255";
-	ip = "192.168.199.255";
+	ip = "192.168.1.255";
 #endif
 	
 	if (!client) {

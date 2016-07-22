@@ -65,6 +65,10 @@ public:
 	// multi cast
 	bool addMembership(const char *addr = 0, const char *interface_ = 0);
 	bool dropMembership(const char *addr = 0, const char *interface_ = 0);
+
+	// methods
+	void closeConnection(int i);
+	void closeAllConnections();	
 	
 	// Note: need update state manually
 	void update();
@@ -92,6 +96,10 @@ public:
 	SocketVec& getConnections() { return connections; }
 	int getMaxConnections() { return maxConnections; }
 	float getConnectTimeout() { return connectTimeoutSecs; }
+	const char* getIp();
+	int getPort();
+	float getIOTimeout() { return ioTimeoutSecs; }
+
 	bool isUdp() { return socket_type == SOCK_DGRAM; }
 	
 	void setMaxConnections(int max) { maxConnections = max; }
@@ -99,6 +107,7 @@ public:
 	void setCheckIpv6Only(bool check) { checkIpv6Only = check; }
 	void setSocketType(int type);
 	void setUdp() { setSocketType(SOCK_DGRAM); }
+	void setIOTimeout(float sec) { ioTimeoutSecs = sec; }
 protected:
 	typedef vector<EventFunc> EventFuncVec;
 	typedef map<int, EventFuncVec*> EventMap;
@@ -130,6 +139,10 @@ protected:
 
 	int socket_type;
 	SockAddr *addrUdp;
+	SockAddr *addrTemp;
+
+	// -1 means never
+	float ioTimeoutSecs;
 };
 
 EASY_NS_END

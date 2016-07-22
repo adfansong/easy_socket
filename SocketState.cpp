@@ -6,7 +6,7 @@ EASY_NS_BEGIN
 SocketState::SocketState(Socket *s, void *p)
 	: socket(s), param(p)
 {
-
+	
 }
 
 SocketState::~SocketState()
@@ -73,7 +73,7 @@ void SocketStateConnecting::update()
 SocketStateConnected::SocketStateConnected(Socket *s, void *p)
 	: SocketState(s, p)
 {
-
+	last = time(0);
 }
 
 void SocketStateConnected::update()
@@ -81,7 +81,26 @@ void SocketStateConnected::update()
 	int ret = socket->select();
 	if (ret & 1) {
 		// do read
-		socket->recv();
+		Socket *s = socket;
+		s->recv();
+
+		// Note: s can be closed in recv(), may delete this state,
+		//	and the code below which visit this will cause error.
+		if (s->isClosed()) {
+			return;
+		}
+	}
+	
+	time_t now = time(0);
+	if (ret & 1) {
+		last = now;
+	} else {
+		// time out
+		float timeout = socket->getIOTimeout();
+		if (timeout > 0 && now - last >= timeout) {
+			socket->setIOTimeout(-1);
+			socket->emit(sTimeout);
+		}
 	}
 }
 

@@ -19,6 +19,9 @@ enum StateType {
 	sClose,
 
 	sMessage,
+
+	// io timeout
+	sTimeout,
 };
 
 // base state
@@ -54,6 +57,9 @@ public:
 	SocketStateConnected(Socket *s, void *p);
 
 	virtual void update();
+
+private:
+	time_t last;
 };
 
 class SocketStateListening : public SocketState {

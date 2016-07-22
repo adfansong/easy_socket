@@ -16,6 +16,8 @@ private:
 
     int      m_len;
 
+	bool	 m_weakptr;
+
 public:
 	~Buffer();
 
@@ -52,6 +54,8 @@ public:
     signed short  readInt16BE(int offset);
     signed int    readInt32LE(int offset);
     signed int    readInt32BE(int offset);
+	long long    readInt64LE(int offset);
+	long long    readInt64BE(int offset);
     float  readFloatLE(int offset);
     float  readFloatBE(int offset);
     double readDoubleLE(int offset);
@@ -63,12 +67,14 @@ public:
     void writeUInt16BE(unsigned short value, int offset);
     void writeUInt32LE(unsigned int value, int offset);
     void writeUInt32BE(unsigned int value, int offset);
-    void writeInt8(char value, int offset);
+	void writeInt8(char value, int offset);
     void writeInt16LE(short value, int offset);
     void writeInt16BE(short value, int offset);
     void writeInt32LE(int value, int offset);
     void writeInt32BE(int value, int offset);
-    void writeFloatLE(float value, int offset);
+	void writeInt64LE(long long value, int offset);
+	void writeInt64BE(long long value, int offset);
+	void writeFloatLE(float value, int offset);
     void writeFloatBE(float value, int offset);
     void writeDoubleLE(double value, int offset);
     void writeDoubleBE(double value, int offset);

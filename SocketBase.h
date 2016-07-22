@@ -73,6 +73,7 @@ protected:
 	int protocol;
 	SockAddr *addr;	
 
+	// weak
 	ISocketBaseEvent *del;
 	int errorCode;
 	int internalError;

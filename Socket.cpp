@@ -60,7 +60,8 @@ const char* Socket::getMulticastAddr(int protocol)
 
 Socket::Socket()
 	: state(0), maxConnections(10), connectTimeoutSecs(5), 
-	addrInfo(0), checkIpv6Only(true), socket_type(SOCK_STREAM), addrUdp(0)
+	addrInfo(0), checkIpv6Only(true), socket_type(SOCK_STREAM), addrUdp(0),
+	ioTimeoutSecs(-1), addrTemp(0)
 {
 #if EASY_LINUX
 	impl = new SocketLinux();
@@ -75,7 +76,8 @@ Socket::Socket()
 
 Socket::Socket(SocketBase *p)
 	: state(0), maxConnections(10), connectTimeoutSecs(-1), 
-	addrInfo(0), checkIpv6Only(true), socket_type(SOCK_STREAM), addrUdp(0), impl(p)
+	addrInfo(0), checkIpv6Only(true), socket_type(SOCK_STREAM), addrUdp(0), impl(p),
+	ioTimeoutSecs(-1), addrTemp(0)
 {
 	impl->setDelegate(this);
 }
@@ -98,15 +100,20 @@ Socket::~Socket()
 	}
 
 	if (addrUdp) {
-		delete addrUdp;
+		addrUdp->release();
 		addrUdp = 0;
+	}
+
+	if (addrTemp) {
+		addrTemp->release();
+		addrTemp = 0;
 	}
 
 	SocketVec::iterator itr = connections.begin();
 	for (; itr != connections.end(); ++itr) {
 		Socket *p = *itr;
 		if (p) {
-			delete p;
+			p->release();
 		}
 	}
 	connections.clear();
@@ -293,6 +300,31 @@ bool Socket::dropMembership(const char *addr, const char *interface_ /*= 0*/)
 	return impl->dropMembership(addr, interface_);
 }
 
+void Socket::closeConnection(int i)
+{
+	if (i >= 0 && i < connections.size()) {
+		Socket *p = connections[i];
+		if (p) {
+			p->close();
+			p->release();
+			connections.erase(connections.begin() + i);
+		}
+	}
+}
+
+void Socket::closeAllConnections()
+{
+	SocketVec::iterator itr = connections.begin();
+	for (; itr != connections.end(); ++itr) {
+		Socket *p = (*itr);
+		if (p) {
+			p->close();
+			p->release();
+		}
+	}
+	connections.clear();
+}
+
 void Socket::update()
 {
 	if (state) {
@@ -306,6 +338,8 @@ void Socket::update()
 
 		// remove closed
 		if ((*itr)->isClosed()) {
+			(*itr)->release();
+
 			itr = connections.erase(itr);
 			EASY_LOG("total connections: %d", connections.size());
 		} else {
@@ -416,6 +450,16 @@ Socket* Socket::getConnection(int i)
 	}
 }
 
+const char* Socket::getIp()
+{
+	return impl ? impl->getSockAddr(0, 0)->getIp() : 0;
+}
+
+int Socket::getPort()
+{
+	return impl ? impl->getSockAddr(0, 0)->getPort() : -1;
+}
+
 void Socket::setState(StateType type, void *param)
 {
 	if (state && state->getType() == type) {
@@ -424,6 +468,7 @@ void Socket::setState(StateType type, void *param)
 
 	if (state) {
 		delete state;
+		state = 0;
 	}
 
 	state = SocketState::create(this, type, param);
@@ -452,11 +497,21 @@ void Socket::recv()
 
 bool Socket::accept()
 {
+	bool ret = true;
 	if (impl) {
-		return impl->accept(0);
+		if (!addrTemp) {
+			addrTemp = new SockAddr(impl->getProtocol());
+		}
+
+		ret = impl->accept(addrTemp);
+
+		if (addrTemp->ref() > 1) {
+			addrTemp->release();
+			addrTemp = 0;
+		}
 	}
 
-	return true;
+	return ret;
 }
 
 bool Socket::checkConnected()
@@ -558,5 +613,6 @@ int Socket::checkProtocol(int port, const char *ip, bool passive)
 
 	return protocol;
 }
+
 
 EASY_NS_END
